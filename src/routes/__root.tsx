@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 
 import appCss from '../styles.css?url'
+import type { ReactNode } from 'react'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -24,7 +24,7 @@ export const Route = createRootRoute({
       },
       {
         rel: 'stylesheet',
-        href: 'https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.css',
+        href: 'https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css',
       },
     ],
   }),

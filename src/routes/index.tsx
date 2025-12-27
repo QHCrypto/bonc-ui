@@ -1,6 +1,8 @@
+import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import type { Settings } from '@/server/bonc'
+import { DEFAULT_CODE, DEFAULT_SETTINGS } from '@/constant'
 
 declare global {
   interface Window {
@@ -23,13 +25,9 @@ const MONACO_LOADER =
   'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js'
 const MONACO_BASE =
   'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs'
-const XTERM_SCRIPT =
-  'https://cdnjs.cloudflare.com/ajax/libs/xterm/5.3.0/xterm.min.js'
+const XTERM_SCRIPT = 'https://cdn.jsdelivr.net/npm/xterm@5.3.0/+esm'
 const XTERM_FIT_SCRIPT =
-  'https://cdnjs.cloudflare.com/ajax/libs/xterm-addon-fit/0.8.0/xterm-addon-fit.min.js'
-
-const DEFAULT_CODE =
-  '#include <stdio.h>\n\nint main() {\n  printf("BONC");\n  return 0;\n}\n'
+  'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/+esm'
 
 export const Route = createFileRoute('/')({
   component: BoncApp,
@@ -69,19 +67,17 @@ function BoncApp() {
   const [terminalReady, setTerminalReady] = useState(false)
 
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settings, setSettings] = useState({
-    clangPath: '',
-    frontendPath: '',
-    backendNmPath: '',
-    backendSatPath: '',
-    backendDpPath: '',
-  })
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
 
   const [nmDefaultDegree, setNmDefaultDegree] = useState('')
   const [nmExpand, setNmExpand] = useState('')
-  const [nmDegrees, setNmDegrees] = useState<Array<{ name: string; value: string }>>([])
+  const [nmDegrees, setNmDegrees] = useState<
+    Array<{ name: string; value: string }>
+  >([])
 
-  const [satMode, setSatMode] = useState<'differential' | 'linear'>('differential')
+  const [satMode, setSatMode] = useState<'differential' | 'linear'>(
+    'differential',
+  )
   const [satInputBits, setSatInputBits] = useState('')
   const [satMaxWeight, setSatMaxWeight] = useState('')
   const [satSolve, setSatSolve] = useState(false)
@@ -161,8 +157,10 @@ function BoncApp() {
         return
       }
       try {
-        await loadScript(XTERM_SCRIPT)
-        await loadScript(XTERM_FIT_SCRIPT)
+        const { Terminal } = await import(/* @vite-ignore */ XTERM_SCRIPT)
+        const { FitAddon } = await import(/* @vite-ignore */ XTERM_FIT_SCRIPT)
+        window.Terminal = Terminal
+        window.FitAddon = FitAddon
       } catch (err) {
         updateStatus('Xterm loader unavailable.', 'error')
         return
@@ -180,7 +178,7 @@ function BoncApp() {
           cursor: '#f5e6d4',
         },
       })
-      fitAddonRef.current = new window.FitAddon.FitAddon()
+      fitAddonRef.current = new window.FitAddon()
       terminalRef.current.loadAddon(fitAddonRef.current)
       terminalRef.current.open(terminalHostRef.current)
       fitAddonRef.current.fit()
@@ -265,6 +263,7 @@ function BoncApp() {
         const data = (await res.json()) as typeof settings
         setSettings({
           clangPath: data.clangPath || '',
+          boncLibPath: data.boncLibPath || '',
           frontendPath: data.frontendPath || '',
           backendNmPath: data.backendNmPath || '',
           backendSatPath: data.backendSatPath || '',
@@ -522,9 +521,15 @@ function BoncApp() {
               </label>
             </div>
 
-            <div className={backend === 'nm' ? 'backend-config' : 'backend-config hidden'}>
+            <div
+              className={
+                backend === 'nm' ? 'backend-config' : 'backend-config hidden'
+              }
+            >
               <div className="form-row">
-                <label htmlFor="nm-default-degree">Default Input Degree (-D)</label>
+                <label htmlFor="nm-default-degree">
+                  Default Input Degree (-D)
+                </label>
                 <input
                   id="nm-default-degree"
                   type="number"
@@ -562,7 +567,13 @@ function BoncApp() {
                         placeholder="name"
                         value={item.name}
                         onChange={(event) =>
-                          updatePair(nmDegrees, setNmDegrees, index, 'name', event.target.value)
+                          updatePair(
+                            nmDegrees,
+                            setNmDegrees,
+                            index,
+                            'name',
+                            event.target.value,
+                          )
                         }
                       />
                       <input
@@ -582,7 +593,9 @@ function BoncApp() {
                       <button
                         type="button"
                         className="secondary small"
-                        onClick={() => removePair(nmDegrees, setNmDegrees, index)}
+                        onClick={() =>
+                          removePair(nmDegrees, setNmDegrees, index)
+                        }
                       >
                         Remove
                       </button>
@@ -592,7 +605,11 @@ function BoncApp() {
               </div>
             </div>
 
-            <div className={backend === 'sat' ? 'backend-config' : 'backend-config hidden'}>
+            <div
+              className={
+                backend === 'sat' ? 'backend-config' : 'backend-config hidden'
+              }
+            >
               <div className="form-row">
                 <label>Model Type</label>
                 <div className="inline-options">
@@ -659,7 +676,9 @@ function BoncApp() {
                 />
               </div>
               <div className="form-row">
-                <label htmlFor="sat-print-states">Print States (--print-states)</label>
+                <label htmlFor="sat-print-states">
+                  Print States (--print-states)
+                </label>
                 <input
                   id="sat-print-states"
                   type="text"
@@ -671,7 +690,11 @@ function BoncApp() {
               </div>
             </div>
 
-            <div className={backend === 'dp' ? 'backend-config' : 'backend-config hidden'}>
+            <div
+              className={
+                backend === 'dp' ? 'backend-config' : 'backend-config hidden'
+              }
+            >
               <div className="form-row">
                 <label htmlFor="dp-output">Output File (-o)</label>
                 <input
@@ -825,7 +848,10 @@ function BoncApp() {
 
       {settingsOpen ? (
         <>
-          <div className="modal-backdrop" onClick={() => setSettingsOpen(false)}></div>
+          <div
+            className="modal-backdrop"
+            onClick={() => setSettingsOpen(false)}
+          ></div>
           <div className="modal" role="dialog" aria-modal="true">
             <div className="modal-header">
               <h2>Executable Paths</h2>
@@ -849,6 +875,21 @@ function BoncApp() {
                     setSettings((prev) => ({
                       ...prev,
                       clangPath: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor="path-bonclib">&lt;bonc.h&gt; location</label>
+                <input
+                  id="path-bonclib"
+                  type="text"
+                  placeholder="/usr/local/include/bonc-lib"
+                  value={settings.boncLibPath}
+                  onChange={(event) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      boncLibPath: event.target.value,
                     }))
                   }
                 />

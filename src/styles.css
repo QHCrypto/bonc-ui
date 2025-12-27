@@ -9,7 +9,7 @@
   --accent-deep: #9e3a1d;
   --border: #e1d2bf;
   --shadow: 0 16px 40px rgba(33, 23, 16, 0.12);
-  --mono: "IBM Plex Mono", "Courier New", monospace;
+  --mono: 'IBM Plex Mono', 'Courier New', monospace;
 }
 
 * {
@@ -19,22 +19,14 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
-  font-family: "Space Grotesk", "Helvetica Neue", sans-serif;
-  position: relative;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: -20vh -10vw auto -10vw;
-  height: 60vh;
-  background: radial-gradient(circle at 20% 20%, #f9dcc6 0%, transparent 60%),
+  background: 
+    radial-gradient(circle at 20% 20%, #f9dcc6 0%, transparent 60%),
     radial-gradient(circle at 70% 10%, #d7e4ea 0%, transparent 50%),
     linear-gradient(120deg, rgba(214, 181, 145, 0.4), transparent);
-  pointer-events: none;
-  z-index: 0;
+  color: var(--text);
+  font-family: 'Space Grotesk', 'Helvetica Neue', sans-serif;
+  position: relative;
+  overflow: clip;
 }
 
 #app {
@@ -43,11 +35,13 @@ body::before {
   display: grid;
   grid-template-columns: minmax(320px, 1.3fr) minmax(320px, 1fr);
   gap: 20px;
-  min-height: 100vh;
+  height: 100vh;
   padding: 24px;
 }
 
 #editor {
+  height: calc(100vh - 48px);
+  min-height: 400px;
   background: var(--panel);
   border-radius: 16px;
   box-shadow: var(--shadow);
@@ -56,13 +50,15 @@ body::before {
 }
 
 #right-panel {
-  display: grid;
-  grid-template-rows: minmax(340px, 1.1fr) minmax(220px, 0.9fr);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
 }
 
 #config-panel,
 #terminal-panel {
+  flex-shrink: 0;
   background: var(--panel);
   border-radius: 16px;
   padding: 20px;
@@ -75,6 +71,7 @@ body::before {
 }
 
 #config-panel {
+  flex-shrink: 0;
   overflow-y: auto;
 }
 
@@ -170,8 +167,8 @@ p {
   font-weight: 500;
 }
 
-.form-row input[type="text"],
-.form-row input[type="number"] {
+.form-row input[type='text'],
+.form-row input[type='number'] {
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -249,7 +246,9 @@ button {
   color: #fff;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 button:hover {

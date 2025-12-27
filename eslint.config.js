@@ -2,4 +2,13 @@
 
 import { tanstackConfig } from '@tanstack/eslint-config'
 
-export default [...tanstackConfig]
+/** @type {import('eslint').Linter.Config[]} */
+export default [
+  ...tanstackConfig,
+  {
+    rules: {
+      '@typescript-eslint/array-type': ['off'],
+      '@typescript-eslint/no-unnecessary-condition': ['off'],
+    },
+  },
+]

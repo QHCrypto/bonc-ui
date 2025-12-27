@@ -1,9 +1,11 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { DEFAULT_SETTINGS } from '@/constant'
 
 export type Settings = {
   clangPath: string
+  boncLibPath: string
   frontendPath: string
   backendNmPath: string
   backendSatPath: string
@@ -27,14 +29,6 @@ type Backend = 'nm' | 'sat' | 'dp'
 const ROOT_DIR = process.cwd()
 const DATA_DIR = path.join(ROOT_DIR, 'data')
 const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json')
-
-const DEFAULT_SETTINGS: Settings = {
-  clangPath: '',
-  frontendPath: '',
-  backendNmPath: '',
-  backendSatPath: '',
-  backendDpPath: '',
-}
 
 const streamClients = new Set<(payload: string) => void>()
 let settingsCache: Settings | null = null
@@ -148,10 +142,7 @@ export function addStreamClient(send: (payload: string) => void) {
 
 async function runPtyCommand({ label, cmd, args, cwd }: PtyCommand) {
   const ptyModule = await import('node-pty')
-  const spawn =
-    (ptyModule as { spawn?: typeof import('node-pty').spawn }).spawn ??
-    (ptyModule as { default?: { spawn?: typeof import('node-pty').spawn } })
-      .default?.spawn
+  const spawn = ptyModule.spawn
   if (!spawn) {
     throw new Error('node-pty spawn is unavailable.')
   }
@@ -175,9 +166,11 @@ async function runPtyCommand({ label, cmd, args, cwd }: PtyCommand) {
       sendPty(data)
     })
 
-    proc.onExit(({ exitCode, signal }: { exitCode: number; signal?: number }) => {
-      resolve({ exitCode, signal })
-    })
+    proc.onExit(
+      ({ exitCode, signal }: { exitCode: number; signal?: number }) => {
+        resolve({ exitCode, signal })
+      },
+    )
   })
 }
 
@@ -245,7 +238,9 @@ function buildSatArgs(jsonPath: string, options: Record<string, unknown>) {
   } else if (options.mode === 'linear') {
     args.push('-l')
   } else {
-    throw new BadRequestError('SAT backend requires differential or linear mode.')
+    throw new BadRequestError(
+      'SAT backend requires differential or linear mode.',
+    )
   }
 
   if (typeof options.inputBits === 'string' && options.inputBits.trim()) {
@@ -259,12 +254,16 @@ function buildSatArgs(jsonPath: string, options: Record<string, unknown>) {
 
   if (options.solve) {
     if (!options.printStates || !String(options.printStates).trim()) {
-      throw new BadRequestError('Print states is required when solve is enabled.')
+      throw new BadRequestError(
+        'Print states is required when solve is enabled.',
+      )
     }
     args.push('--solve', '--print-states', String(options.printStates).trim())
   } else {
     if (!options.outputPath || !String(options.outputPath).trim()) {
-      throw new BadRequestError('Output path is required when solve is disabled.')
+      throw new BadRequestError(
+        'Output path is required when solve is disabled.',
+      )
     }
     args.push('--output', String(options.outputPath).trim())
   }
@@ -354,7 +353,7 @@ export async function compile(code: string) {
   await runCommand({
     label: 'bonc-clang',
     cmd: settings.clangPath,
-    args: ['temp.c', '-emit-llvm', '-S', '-o', 'temp.ll'],
+    args: ['temp.c', '-I', settings.boncLibPath, '-emit-llvm', '-S', '-o', 'temp.ll'],
     cwd: runDir,
   })
   await runCommand({
@@ -365,20 +364,15 @@ export async function compile(code: string) {
   })
 
   const globModule = await import('glob')
-  const globSync =
-    (globModule as { globSync?: typeof import('glob').globSync }).globSync ??
-    (globModule as { sync?: typeof import('glob').sync }).sync ??
-    (globModule as { default?: { globSync?: typeof import('glob').globSync } })
-      .default?.globSync ??
-    (globModule as { default?: { sync?: typeof import('glob').sync } }).default
-      ?.sync
+  const globSync = globModule.globSync
 
   const jsonFiles = globSync
-    ? globSync('temp-out/bonc_*.json', { cwd: runDir, nodir: true })
-        .map((file) => {
+    ? globSync('temp-out/bonc_*.json', { cwd: runDir, nodir: true }).map(
+        (file) => {
           const fullPath = path.join(runDir, file)
           return { name: path.basename(fullPath), path: fullPath }
-        })
+        },
+      )
     : []
 
   return { runDir, jsonFiles }

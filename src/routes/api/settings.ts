@@ -1,6 +1,5 @@
-import type { Settings } from '@/server/bonc'
 import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
+import type { Settings } from '@/server/bonc'
 
 export const Route = createFileRoute('/api/settings')({
   server: {
@@ -8,7 +7,7 @@ export const Route = createFileRoute('/api/settings')({
       GET: async () => {
         const bonc = await import('@/server/bonc')
         const settings = await bonc.getSettings()
-        return json(settings)
+        return Response.json(settings)
       },
       POST: async ({ request }) => {
         const bonc = await import('@/server/bonc')
@@ -20,12 +19,12 @@ export const Route = createFileRoute('/api/settings')({
         }
         try {
           const next = await bonc.saveSettings(body as Settings)
-          return json(next)
+          return Response.json(next)
         } catch (err) {
           if (err instanceof bonc.BadRequestError) {
-            return json({ error: err.message }, { status: 400 })
+            return Response.json({ error: err.message }, { status: 400 })
           }
-          return json({ error: 'Failed to save settings.' }, { status: 500 })
+          return Response.json({ error: 'Failed to save settings.' }, { status: 500 })
         }
       },
     },
