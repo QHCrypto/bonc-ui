@@ -147,6 +147,7 @@ async function runPtyCommand({ label, cmd, args, cwd }: PtyCommand) {
     throw new Error('node-pty spawn is unavailable.')
   }
   sendNotice('info', `Starting ${label}`)
+  sendNotice('info', `Command: ${cmd} ${args.map((a) => `"${a}"`).join(' ')}`)
   return new Promise<PtyResult>((resolve, reject) => {
     let proc
     try {

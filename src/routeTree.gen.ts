@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as Spn_visualizerRouteImport } from './routes/spn_visualizer'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStreamRouteImport } from './routes/api/stream'
 import { Route as ApiSettingsRouteImport } from './routes/api/settings'
 import { Route as ApiRunBackendRouteImport } from './routes/api/run-backend'
 import { Route as ApiCompileRouteImport } from './routes/api/compile'
 
+const Spn_visualizerRoute = Spn_visualizerRouteImport.update({
+  id: '/spn_visualizer',
+  path: '/spn_visualizer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -43,6 +49,7 @@ const ApiCompileRoute = ApiCompileRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/spn_visualizer': typeof Spn_visualizerRoute
   '/api/compile': typeof ApiCompileRoute
   '/api/run-backend': typeof ApiRunBackendRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/spn_visualizer': typeof Spn_visualizerRoute
   '/api/compile': typeof ApiCompileRoute
   '/api/run-backend': typeof ApiRunBackendRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/spn_visualizer': typeof Spn_visualizerRoute
   '/api/compile': typeof ApiCompileRoute
   '/api/run-backend': typeof ApiRunBackendRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -67,6 +76,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/spn_visualizer'
     | '/api/compile'
     | '/api/run-backend'
     | '/api/settings'
@@ -74,6 +84,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/spn_visualizer'
     | '/api/compile'
     | '/api/run-backend'
     | '/api/settings'
@@ -81,6 +92,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/spn_visualizer'
     | '/api/compile'
     | '/api/run-backend'
     | '/api/settings'
@@ -89,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  Spn_visualizerRoute: typeof Spn_visualizerRoute
   ApiCompileRoute: typeof ApiCompileRoute
   ApiRunBackendRoute: typeof ApiRunBackendRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
@@ -97,6 +110,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/spn_visualizer': {
+      id: '/spn_visualizer'
+      path: '/spn_visualizer'
+      fullPath: '/spn_visualizer'
+      preLoaderRoute: typeof Spn_visualizerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -137,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  Spn_visualizerRoute: Spn_visualizerRoute,
   ApiCompileRoute: ApiCompileRoute,
   ApiRunBackendRoute: ApiRunBackendRoute,
   ApiSettingsRoute: ApiSettingsRoute,

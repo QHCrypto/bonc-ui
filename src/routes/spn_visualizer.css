@@ -1,0 +1,220 @@
+.spn-visualizer {
+  display: grid;
+  height: 100vh;
+  width: 100vw;
+  overflow: clip;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  min-height: 100vh;
+  background: #f2f4f8;
+  color: #1f2933;
+}
+
+@media (max-width: 900px) {
+  .spn-visualizer {
+    grid-template-columns: 1fr;
+  }
+}
+
+.spn-visualizer {
+  .side-panel {
+    padding: 2rem 1.5rem;
+    background: #ffffff;
+    box-shadow: inset -1px 0 0 rgba(31, 41, 51, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow: auto;
+  }
+
+  .side-panel header h1 {
+    margin: 0 0 0.4rem;
+    font-size: 1.8rem;
+  }
+
+  .side-panel header p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #475869;
+  }
+
+  .config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .field-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .field-group label,
+  .field-block {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.9rem;
+    gap: 0.4rem;
+  }
+
+  input[type='number'],
+  textarea {
+    font: inherit;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid #c3ccd7;
+    border-radius: 6px;
+    background: #f9fbfd;
+    transition: border-color 0.2s ease;
+  }
+
+  input[type='number']:focus,
+  textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: #ffffff;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    gap: 0.5rem;
+  }
+
+  .help-text {
+    font-size: 0.78rem;
+    color: #637487;
+  }
+
+  .validation,
+  .summary {
+    background: #f8fafc;
+    border: 1px solid rgba(99, 116, 135, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .validation h2,
+  .summary h2 {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+
+  .validation ul {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: #b93815;
+    font-size: 0.9rem;
+  }
+
+  .summary-label {
+    font-weight: 600;
+    margin-right: 0.4rem;
+  }
+
+  .table-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .table-preview th,
+  .table-preview td {
+    padding: 0.35rem 0.4rem;
+    border-bottom: 1px solid rgba(99, 116, 135, 0.2);
+    text-align: left;
+  }
+
+  .table-preview tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .hint {
+    font-size: 0.8rem;
+    color: #516273;
+    margin: 0;
+  }
+
+  .hint code {
+    background: rgba(59, 130, 246, 0.08);
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    margin-left: 0.3rem;
+  }
+
+  .diagram-panel {
+    position: relative;
+    overflow: auto;
+    height: 100vh;
+  }
+
+  .diagram-wrapper {
+    height: 100%;
+    width: 100%;
+    padding: 2.5rem 2rem;
+    padding-bottom: 1rem;
+  }
+
+  .spn-diagram {
+    min-width: 100%;
+    min-height: 100%;
+  }
+
+  .stage-label {
+    fill: #334155;
+    font-size: 0.85rem;
+    text-anchor: middle;
+    font-weight: 600;
+  }
+
+  .bit-label {
+    fill: #526174;
+    font-size: 0.75rem;
+    text-anchor: end;
+  }
+
+  .bit-node {
+    fill: #ffffff;
+    stroke-width: 1.2;
+    stroke: rgba(79, 99, 129, 0.9);
+  }
+
+  .bit-node.input {
+    fill: rgba(59, 130, 246, 0.12);
+  }
+
+  .bit-node.output {
+    fill: rgba(16, 185, 129, 0.12);
+  }
+
+  .sbox-shape rect {
+    fill: rgba(79, 70, 229, 0.08);
+    stroke: rgba(79, 70, 229, 0.35);
+    stroke-width: 1.2;
+  }
+
+  .sbox-label {
+    fill: #4338ca;
+    font-size: 0.8rem;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    font-weight: 600;
+  }
+
+  .placeholder {
+    color: #64748b;
+    font-size: 1rem;
+  }
+
+  code {
+    font-family:
+      'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  }
+}
