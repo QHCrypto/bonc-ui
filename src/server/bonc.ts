@@ -396,3 +396,41 @@ export async function runBackend(
     cwd: path.dirname(jsonPath),
   })
 }
+
+export type SBoxInfo = {
+  outputWidth: number | null
+  value: number[]
+}
+
+export async function readSBoxInfo(jsonPath: string): Promise<SBoxInfo> {
+  if (!jsonPath) {
+    throw new BadRequestError('JSON path is required.')
+  }
+  if (!fs.existsSync(jsonPath)) {
+    throw new BadRequestError(`JSON not found: ${jsonPath}`)
+  }
+
+  const raw = await fs.promises.readFile(jsonPath, 'utf8')
+  let parsed: any
+  try {
+    parsed = JSON.parse(raw)
+  } catch (error) {
+    throw new BadRequestError(
+      error instanceof Error
+        ? `Invalid JSON: ${error.message}`
+        : 'Invalid JSON file.',
+    )
+  }
+
+  const sBox = parsed?.components?.sboxes?.[0]
+  if (!sBox || !Array.isArray(sBox.value)) {
+    return { outputWidth: null, value: [] }
+  }
+
+  const outputWidth =
+    typeof sBox.output_width === 'number' ? sBox.output_width : null
+  return {
+    outputWidth,
+    value: sBox.value,
+  }
+}

@@ -98,6 +98,19 @@ export function sanitizeConfig(config: SPNConfig): SPNConfig {
   }
 }
 
+export function invertPermutation(permutation: number[]): number[] {
+  const inverse = new Array(permutation.length).fill(-1)
+  permutation.forEach((target, index) => {
+    inverse[target] = index
+  })
+
+  if (inverse.some((value) => value === -1)) {
+    throw new Error('Permutation is not a bijection and cannot be inverted')
+  }
+
+  return inverse
+}
+
 function applyPermutation<T>(values: T[], permutation: number[]): T[] {
   const next = values.slice()
   permutation.forEach((position, index) => {

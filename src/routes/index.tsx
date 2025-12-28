@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import type { ConfigFormState } from '@/components/ConfigForm'
 import type { Settings } from '@/server/bonc'
 import { DEFAULT_CODE, DEFAULT_SETTINGS } from '@/constant'
 
@@ -28,6 +29,102 @@ const MONACO_BASE =
 const XTERM_SCRIPT = 'https://cdn.jsdelivr.net/npm/xterm@5.3.0/+esm'
 const XTERM_FIT_SCRIPT =
   'https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/+esm'
+
+const PRINT_STATE_BEGIN = '### print-state begin'
+const PRINT_STATE_END = '### print-state end'
+
+type PrintStateCollector = {
+  collecting: boolean
+  buffer: string
+  lines: string[]
+}
+
+const VISUALIZER_FORM_DEFAULT: ConfigFormState = {
+  blockSize: '',
+  sBoxSize: '',
+  numberOfRounds: '',
+  sBoxTableText: '',
+  pBoxTableText: '',
+  applyFinalPermutation: false,
+  roundLayoutText: '',
+}
+
+function createCollector(): PrintStateCollector {
+  return {
+    collecting: false,
+    buffer: '',
+    lines: [],
+  }
+}
+
+function bitsOfNibble(value: number) {
+  if (Number.isNaN(value) || value < 0 || value > 15) {
+    throw new Error('Nibble must be between 0 and 15')
+  }
+  const bits: number[] = []
+  for (let i = 0; i < 4; i++) {
+    if ((value & (1 << i)) !== 0) {
+      bits.push(i)
+    }
+  }
+  return bits
+}
+
+function stripAnsi(value: string) {
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/\u001b\[[0-9;]*m/g, '')
+}
+
+function parseStateLine(line: string, reverse = false) {
+  const nibbles = (line.match(/[-0-9a-fA-F]/g) ?? []).map((char) =>
+    char === '-' ? 0 : Number.parseInt(char, 16),
+  )
+  if (reverse) {
+    nibbles.reverse()
+  }
+  const highlightBits: number[] = []
+  nibbles.forEach((value, nibbleIndex) => {
+    const nibbleBits = bitsOfNibble(value).map((bit) => bit + nibbleIndex * 4)
+    highlightBits.push(...nibbleBits)
+  })
+  return { highlightBits, blockSize: nibbles.length * 4 }
+}
+
+function extractHighlights(states: string[], reverse = false) {
+  const highlights: number[][] = []
+  let guessedBlock = Infinity
+  for (const state of states) {
+    const parsed = parseStateLine(state, reverse)
+    highlights.push(parsed.highlightBits)
+    guessedBlock = Math.min(guessedBlock, parsed.blockSize)
+  }
+  return { highlights, blockSize: guessedBlock }
+}
+
+function feedPrintStateChunk(
+  chunk: string,
+  collector: PrintStateCollector,
+  onComplete: (lines: string[]) => void,
+) {
+  const normalized = (collector.buffer + chunk.replace(/\r/g, '')).split('\n')
+  collector.buffer = normalized.pop() ?? ''
+  for (const line of normalized) {
+    if (!collector.collecting && line.includes(PRINT_STATE_BEGIN)) {
+      collector.collecting = true
+      collector.lines = []
+      continue
+    }
+    if (collector.collecting && line.includes(PRINT_STATE_END)) {
+      onComplete([...collector.lines])
+      collector.collecting = false
+      collector.lines = []
+      continue
+    }
+    if (collector.collecting) {
+      collector.lines.push(stripAnsi(line).trim())
+    }
+  }
+}
 
 export const Route = createFileRoute('/')({
   component: BoncApp,
@@ -92,6 +189,23 @@ function BoncApp() {
     Array<{ name: string; value: string }>
   >([])
 
+  const [visualizerForm, setVisualizerForm] = useState<ConfigFormState>(
+    VISUALIZER_FORM_DEFAULT,
+  )
+  const [highlightBits, setHighlightBits] = useState<number[][]>([])
+  const [visualizerModalOpen, setVisualizerModalOpen] = useState(false)
+  const [reverseHighlights, setReverseHighlights] = useState(false)
+  const [blockSizeTouched, setBlockSizeTouched] = useState(false)
+  const [sboxError, setSboxError] = useState('')
+  const [sboxLoading, setSboxLoading] = useState(false)
+  const [printStateBanner, setPrintStateBanner] = useState<{
+    states: string[]
+    blockSize?: number
+  } | null>(null)
+
+  const rawStatesRef = useRef<string[]>([])
+  const printStateCollectorRef = useRef<PrintStateCollector>(createCollector())
+
   const backendRunDisabled = !selectedJson || isRunning
 
   const updateStatus = useCallback(
@@ -108,6 +222,76 @@ function BoncApp() {
     }
     return statusLevel === 'error' ? 'status error' : 'status'
   }, [status, statusLevel])
+
+  const handlePrintStateBlock = useCallback(
+    (rawLines: string[]) => {
+      const cleaned = rawLines
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith('#'))
+      if (!cleaned.length) {
+        return
+      }
+      rawStatesRef.current = cleaned
+      setBlockSizeTouched(false)
+      try {
+        const { highlights, blockSize } = extractHighlights(
+          cleaned,
+          reverseHighlights,
+        )
+        const safeBlockSize = blockSize > 0 ? blockSize : undefined
+        setHighlightBits(highlights)
+        setVisualizerForm((prev) => ({
+          ...prev,
+          numberOfRounds: String(highlights.length || cleaned.length),
+          blockSize:
+            safeBlockSize && !blockSizeTouched
+              ? String(safeBlockSize)
+              : prev.blockSize || (safeBlockSize ? String(safeBlockSize) : ''),
+        }))
+        setPrintStateBanner({ states: cleaned, blockSize: safeBlockSize })
+      } catch (error) {
+        setPrintStateBanner(null)
+        updateStatus(
+          error instanceof Error
+            ? `Failed to parse print-state block: ${error.message}`
+            : 'Failed to parse print-state block.',
+          'error',
+        )
+      }
+    },
+    [blockSizeTouched, reverseHighlights, updateStatus],
+  )
+
+  useEffect(() => {
+    if (!rawStatesRef.current.length) {
+      return
+    }
+    try {
+      const { highlights, blockSize } = extractHighlights(
+        rawStatesRef.current,
+        reverseHighlights,
+      )
+      const safeBlockSize = blockSize > 0 ? blockSize : undefined
+      setHighlightBits(highlights)
+      setVisualizerForm((prev) => ({
+        ...prev,
+        numberOfRounds: String(
+          highlights.length || rawStatesRef.current.length,
+        ),
+        blockSize:
+          safeBlockSize && !blockSizeTouched
+            ? String(safeBlockSize)
+            : prev.blockSize,
+      }))
+    } catch (error) {
+      updateStatus(
+        error instanceof Error
+          ? `Failed to recompute highlight bits: ${error.message}`
+          : 'Failed to recompute highlight bits.',
+        'error',
+      )
+    }
+  }, [blockSizeTouched, reverseHighlights, updateStatus])
 
   useEffect(() => {
     let active = true
@@ -218,15 +402,21 @@ function BoncApp() {
     }
     const source = new EventSource('/api/stream')
     const handlePty = (event: MessageEvent) => {
-      if (!terminalRef.current) {
-        return
-      }
+      let data = ''
       try {
-        const payload = JSON.parse(event.data) as { data: string }
-        terminalRef.current.write(payload.data)
+        const payload = JSON.parse(event.data) as { data?: string }
+        data = typeof payload.data === 'string' ? payload.data : event.data
       } catch (err) {
-        terminalRef.current.write(event.data)
+        data = event.data
       }
+      if (terminalRef.current) {
+        terminalRef.current.write(data)
+      }
+      feedPrintStateChunk(
+        data,
+        printStateCollectorRef.current,
+        handlePrintStateBlock,
+      )
     }
     const handleNotice = (event: MessageEvent) => {
       if (!terminalRef.current) {
@@ -251,7 +441,7 @@ function BoncApp() {
     return () => {
       source.close()
     }
-  }, [terminalReady, updateStatus])
+  }, [handlePrintStateBlock, terminalReady, updateStatus])
 
   useEffect(() => {
     async function fetchSettings() {
@@ -408,6 +598,68 @@ function BoncApp() {
       setIsRunning(false)
     }
   }
+
+  const visualizerHighlightText = useMemo(
+    () =>
+      highlightBits
+        .map((round, index) => `Round ${index}: ${round.join(', ')}`)
+        .join('\n'),
+    [highlightBits],
+  )
+
+  const fetchSBoxInfo = useCallback(async () => {
+    if (!selectedJson) {
+      setSboxError('Select a bonc_*.json first.')
+      return
+    }
+    setSboxLoading(true)
+    setSboxError('')
+    try {
+      const res = await fetch('/api/sbox-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: selectedJson.path }),
+      })
+      const data = (await res.json()) as {
+        outputWidth?: number
+        value?: number[]
+        error?: string
+      }
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load S-Box info.')
+      }
+      const next: Partial<ConfigFormState> = {}
+      if (typeof data.outputWidth === 'number') {
+        next.sBoxSize = String(data.outputWidth)
+      }
+      if (Array.isArray(data.value) && data.value.length) {
+        next.sBoxTableText = data.value.join(', ')
+      }
+      setVisualizerForm((prev) => ({ ...prev, ...next }))
+    } catch (error) {
+      setSboxError(
+        error instanceof Error ? error.message : 'Failed to load S-Box info.',
+      )
+    } finally {
+      setSboxLoading(false)
+    }
+  }, [selectedJson])
+
+  const handleOpenVisualizer = useCallback(() => {
+    const finalConfig: ConfigFormState = {
+      ...visualizerForm,
+      numberOfRounds:
+        visualizerForm.numberOfRounds ||
+        (highlightBits.length ? String(highlightBits.length) : ''),
+    }
+    const newWindow = window.open('/spn_visualizer', '_blank')
+    const payload = { config: finalConfig, highlights: highlightBits }
+    console.log(newWindow, payload)
+    setTimeout(() => {
+      newWindow?.postMessage(payload, '*')
+    }, 3000)
+    // setVisualizerModalOpen(false)
+  }, [highlightBits, visualizerForm])
 
   async function saveSettings() {
     try {
@@ -834,14 +1086,46 @@ function BoncApp() {
               <div className="eyebrow">Output</div>
               <h2>Run Log</h2>
             </div>
-            <button
-              className="secondary"
-              type="button"
-              onClick={() => terminalRef.current?.clear()}
-            >
-              Clear
-            </button>
+            <div className="terminal-actions">
+              {printStateBanner ? (
+                <button
+                  className="secondary"
+                  type="button"
+                  onClick={() => setVisualizerModalOpen(true)}
+                  title="Configure SPN visualization from detected states"
+                >
+                  Go to SPN visualization
+                </button>
+              ) : null}
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => terminalRef.current?.clear()}
+              >
+                Clear
+              </button>
+            </div>
           </div>
+          {printStateBanner ? (
+            <div className="terminal-banner">
+              <div>
+                <strong>Detected SPN states</strong>
+                <div className="muted">
+                  {printStateBanner.states.length} state lines detected
+                  {printStateBanner.blockSize
+                    ? ` · ${printStateBanner.blockSize} bits inferred`
+                    : ''}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setVisualizerModalOpen(true)}
+              >
+                Configure
+              </button>
+            </div>
+          ) : null}
           <div id="terminal" ref={terminalHostRef}></div>
         </div>
       </div>
@@ -958,6 +1242,198 @@ function BoncApp() {
             <div className="modal-footer">
               <button type="button" onClick={saveSettings}>
                 Save Settings
+              </button>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {visualizerModalOpen ? (
+        <>
+          <div
+            className="modal-backdrop"
+            onClick={() => setVisualizerModalOpen(false)}
+          ></div>
+          <div className="modal" role="dialog" aria-modal="true">
+            <div className="modal-header">
+              <div>
+                <h2>SPN Visualization</h2>
+                <div className="muted small-text">
+                  Prefill the visualizer with parsed terminal states.
+                </div>
+              </div>
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setVisualizerModalOpen(false)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="form-row">
+                <label htmlFor="viz-block-size">Block size (bits)</label>
+                <input
+                  id="viz-block-size"
+                  type="number"
+                  min={1}
+                  value={visualizerForm.blockSize}
+                  onChange={(event) => {
+                    setBlockSizeTouched(true)
+                    setVisualizerForm((prev) => ({
+                      ...prev,
+                      blockSize: event.target.value,
+                    }))
+                  }}
+                  placeholder="Required"
+                />
+              </div>
+
+              <div className="form-row">
+                <label htmlFor="viz-sbox-size">S-Box size (bits)</label>
+                <div className="inline-actions">
+                  <input
+                    id="viz-sbox-size"
+                    type="number"
+                    min={1}
+                    value={visualizerForm.sBoxSize}
+                    onChange={(event) =>
+                      setVisualizerForm((prev) => ({
+                        ...prev,
+                        sBoxSize: event.target.value,
+                      }))
+                    }
+                    placeholder="Optional — fetched when available"
+                  />
+                  <button
+                    className="secondary small"
+                    type="button"
+                    onClick={fetchSBoxInfo}
+                    disabled={sboxLoading}
+                  >
+                    {sboxLoading ? 'Fetching...' : 'Fetch from JSON'}
+                  </button>
+                </div>
+                {sboxError ? (
+                  <div className="error-text">{sboxError}</div>
+                ) : null}
+              </div>
+
+              <label className="field-block">
+                S-Box table
+                <textarea
+                  name="viz-sbox-table"
+                  rows={3}
+                  value={visualizerForm.sBoxTableText}
+                  onChange={(event) =>
+                    setVisualizerForm((prev) => ({
+                      ...prev,
+                      sBoxTableText: event.target.value,
+                    }))
+                  }
+                  placeholder="Comma-separated lookup values"
+                />
+              </label>
+
+              <label className="field-block">
+                P-Box permutation
+                <textarea
+                  name="viz-pbox-table"
+                  rows={3}
+                  value={visualizerForm.pBoxTableText}
+                  onChange={(event) =>
+                    setVisualizerForm((prev) => ({
+                      ...prev,
+                      pBoxTableText: event.target.value,
+                    }))
+                  }
+                  placeholder="Comma-separated bit positions"
+                />
+              </label>
+
+              <label className="field-block">
+                Round layout (optional)
+                <textarea
+                  name="viz-round-layout"
+                  rows={3}
+                  value={visualizerForm.roundLayoutText}
+                  onChange={(event) =>
+                    setVisualizerForm((prev) => ({
+                      ...prev,
+                      roundLayoutText: event.target.value,
+                    }))
+                  }
+                  placeholder="Use | to separate S-Boxes; one line per round"
+                />
+              </label>
+
+              <div className="form-row">
+                <label htmlFor="viz-rounds">Number of rounds</label>
+                <input
+                  id="viz-rounds"
+                  type="text"
+                  value={
+                    visualizerForm.numberOfRounds ||
+                    (highlightBits.length ? String(highlightBits.length) : '')
+                  }
+                  readOnly
+                />
+              </div>
+
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={visualizerForm.applyFinalPermutation}
+                  onChange={(event) =>
+                    setVisualizerForm((prev) => ({
+                      ...prev,
+                      applyFinalPermutation: event.target.checked,
+                    }))
+                  }
+                />
+                Apply permutation after last round
+              </label>
+
+              <div className="form-row toggle-row">
+                <label htmlFor="viz-reverse">Reverse nibble order</label>
+                <input
+                  id="viz-reverse"
+                  type="checkbox"
+                  checked={reverseHighlights}
+                  onChange={(event) =>
+                    setReverseHighlights(event.target.checked)
+                  }
+                />
+              </div>
+
+              <label className="field-block">
+                Highlight bits (read-only)
+                <textarea
+                  name="viz-highlights"
+                  rows={4}
+                  value={
+                    visualizerHighlightText || 'No highlight bits detected yet.'
+                  }
+                  readOnly
+                />
+              </label>
+            </div>
+
+            <div className="modal-footer spaced">
+              <div className="muted small-text">
+                A new tab will open the visualizer using these values.
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenVisualizer}
+                disabled={
+                  !visualizerForm.blockSize.trim() ||
+                  !visualizerForm.pBoxTableText.trim() ||
+                  !visualizerForm.sBoxSize.trim()
+                }
+              >
+                Open SPN visualizer
               </button>
             </div>
           </div>

@@ -5,7 +5,7 @@ import type { ConfigFormState } from '@/components/ConfigForm'
 import type { RoundDefinition, SPNConfig } from '@/types'
 import { ConfigForm } from '@/components/ConfigForm'
 import { SPNDiagram } from '@/components/SPNDiagram'
-import { parseNumberList, sanitizeConfig } from '@/utils/spn'
+import { invertPermutation, parseNumberList, sanitizeConfig } from '@/utils/spn'
 import './spn_visualizer.css'
 
 export const Route = createFileRoute('/spn_visualizer')({
@@ -31,23 +31,69 @@ const defaultFormState: ConfigFormState = {
   roundLayoutText: '',
 }
 
+const DEFAULT_HIGHLIGHT_BITS: number[][] = []
+
 function SpnVisualizer() {
+  const [initializedFromSearch, setInitializedFromSearch] = useState(false)
   const [formState, setFormState] = useState<ConfigFormState>(defaultFormState)
+  const [highlightBits, setHighlightBits] = useState<number[][]>(
+    DEFAULT_HIGHLIGHT_BITS,
+  )
 
   const { config, errors } = useMemo(() => parseConfig(formState), [formState])
 
-  const sBoxTable = useMemo(
-    () => (config ? formatTable(config.sBox.table, config.sBox.size) : []),
-    [config],
-  )
   const permutationText = useMemo(
     () => (config ? config.pBox.join(', ') : ''),
     [config],
   )
 
+  const pInverse = useMemo(
+    () => (config ? invertPermutation(config.pBox) : []),
+    [config],
+  )
+
+  const onMessage = (event: MessageEvent) => {
+    if (initializedFromSearch) return
+    const data = event.data as {
+      config: ConfigFormState
+      highlights: number[][]
+    }
+    if (data?.config) {
+      setFormState(decodeConfigSearch(data.config))
+    }
+    if (data?.highlights) {
+      setHighlightBits(decodeHighlights(data.highlights))
+    }
+    setInitializedFromSearch(true)
+  }
+
   useEffect(() => {
-    addStyles()
+    window.addEventListener('message', onMessage)
+    return () => {
+      window.removeEventListener('message', onMessage)
+    }
   }, [])
+
+  useEffect(() => {
+    const styleId = 'spn-visualizer-highlight-style'
+    const styleEl = ensureStyleElement(styleId)
+    if (!config || highlightBits.length === 0) {
+      styleEl.innerHTML = ''
+      return
+    }
+    const selectors = buildHighlightSelectors(highlightBits, config, pInverse)
+    styleEl.innerHTML = selectors
+      .map((selector) => `${selector} { stroke: #e53e3e; stroke-width: 2px; }`)
+      .join('\n')
+    return () => {
+      styleEl.innerHTML = ''
+    }
+  }, [config, highlightBits, pInverse])
+
+  const sBoxTable = useMemo(
+    () => (config ? formatTable(config.sBox.table, config.sBox.size) : []),
+    [config],
+  )
 
   return (
     <div className="spn-visualizer">
@@ -362,54 +408,65 @@ function padBinary(value: number, width: number) {
   return value.toString(2).padStart(width, '0')
 }
 
-const HIGHLIGHT_BITS: number[][] = [
-  // [16, 25, 27],
-  // [101, 103],
-  // [25],
-  // [68, 101],
-  // [83, 91, 120],
-  // [20, 22, 30, 84, 86, 92],
-  [78, 79, 125, 126, 127],
-  [48, 60],
-  [110, 111],
-  [56],
-  [47, 76, 109],
-]
+function ensureStyleElement(id: string): HTMLStyleElement {
+  const existing = document.getElementById(id)
+  if (existing && existing instanceof HTMLStyleElement) {
+    return existing
+  }
+  const style = document.createElement('style')
+  style.id = id
+  document.head.appendChild(style)
+  return style
+}
 
-const P_INV = [
-  0, 5, 10, 15, 16, 21, 26, 31, 32, 37, 42, 47, 48, 53, 58, 63, 64, 69, 74, 79,
-  80, 85, 90, 95, 96, 101, 106, 111, 112, 117, 122, 127, 12, 1, 6, 11, 28, 17,
-  22, 27, 44, 33, 38, 43, 60, 49, 54, 59, 76, 65, 70, 75, 92, 81, 86, 91, 108,
-  97, 102, 107, 124, 113, 118, 123, 8, 13, 2, 7, 24, 29, 18, 23, 40, 45, 34, 39,
-  56, 61, 50, 55, 72, 77, 66, 71, 88, 93, 82, 87, 104, 109, 98, 103, 120, 125,
-  114, 119, 4, 9, 14, 3, 20, 25, 30, 19, 36, 41, 46, 35, 52, 57, 62, 51, 68, 73,
-  78, 67, 84, 89, 94, 83, 100, 105, 110, 99, 116, 121, 126, 115,
-]
+function buildHighlightSelectors(
+  highlights: number[][],
+  config: SPNConfig,
+  inversePermutation: number[],
+): string[] {
+  const selectors: string[] = []
+  const roundCount = Math.min(highlights.length, config.numberOfRounds)
+  for (let round = 0; round < roundCount; round++) {
+    for (const bit of highlights[round] ?? []) {
+      if (bit < 0 || bit >= config.blockSize) continue
+      if (round === 0) {
+        selectors.push(`#input-\\>round-0-sbox\\#${bit}`)
+        continue
+      }
 
-function addStyles() {
-  const ids: string[] = []
-  for (let round = 0; round < HIGHLIGHT_BITS.length; round++) {
-    for (const bit of HIGHLIGHT_BITS[round]) {
-      if (round > 0) {
-        ids.push(`round-${round - 1}-perm-\\>round-${round}-sbox\\#${bit}`)
-        ids.push(
-          `round-${round - 1}-sbox-\\>round-${round - 1}-perm\\#${P_INV[bit]}`,
+      selectors.push(`#round-${round - 1}-perm-\\>round-${round}-sbox\\#${bit}`)
+      const sourceBit = inversePermutation[bit]
+      if (Number.isFinite(sourceBit)) {
+        selectors.push(
+          `#round-${round - 1}-sbox-\\>round-${round - 1}-perm\\#${sourceBit}`,
         )
-      } else {
-        ids.push(`input-\\>round-0-sbox\\#${bit}`)
       }
     }
   }
-  const style = document.createElement('style')
-  style.innerHTML = ids
-    .map(
-      (id) => `
-    #${id} {
-      stroke: #e53e3e;
-      stroke-width: 2px;
-    }
-  `,
-    )
-    .join('\n')
-  document.head.appendChild(style)
+  return selectors
+}
+
+function decodeConfigSearch(parsed: any): ConfigFormState {
+  return {
+    blockSize: parsed.blockSize ?? defaultFormState.blockSize,
+    sBoxSize: parsed.sBoxSize ?? defaultFormState.sBoxSize,
+    numberOfRounds: parsed.numberOfRounds ?? defaultFormState.numberOfRounds,
+    sBoxTableText: parsed.sBoxTableText ?? defaultFormState.sBoxTableText,
+    pBoxTableText: parsed.pBoxTableText ?? defaultFormState.pBoxTableText,
+    applyFinalPermutation:
+      typeof parsed.applyFinalPermutation === 'boolean'
+        ? parsed.applyFinalPermutation
+        : defaultFormState.applyFinalPermutation,
+    roundLayoutText: parsed.roundLayoutText ?? defaultFormState.roundLayoutText,
+  }
+}
+
+function decodeHighlights(parsed: any): number[][] {
+  return parsed.map((round: any[]) =>
+    Array.isArray(round)
+      ? round
+          .map((value) => Number(value))
+          .filter((value) => Number.isFinite(value) && value >= 0)
+      : [],
+  )
 }
