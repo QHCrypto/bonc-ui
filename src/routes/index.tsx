@@ -238,6 +238,8 @@ function BoncApp() {
   const [blockSizeTouched, setBlockSizeTouched] = useState(false)
   const [sboxError, setSboxError] = useState('')
   const [sboxLoading, setSboxLoading] = useState(false)
+  const [pboxError, setPboxError] = useState('')
+  const [pboxLoading, setPboxLoading] = useState(false)
   const [printStateBanner, setPrintStateBanner] = useState<{
     states: string[]
     blockSize?: number
@@ -684,6 +686,47 @@ function BoncApp() {
       setSboxLoading(false)
     }
   }, [selectedJson])
+
+  const fillPBoxWithAI = useCallback(async () => {
+    const code = editorRef.current ? editorRef.current.getValue() : ''
+    if (!code.trim()) {
+      setPboxError('Add some C code in the editor first.')
+      return
+    }
+    setPboxLoading(true)
+    setPboxError('')
+    try {
+      const res = await fetch('/api/reason-info-from-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+      const data = (await res.json()) as {
+        pBoxValues?: number[] | null
+        error?: string
+      }
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to load P-Box info.')
+      }
+      const values = Array.isArray(data.pBoxValues) ? data.pBoxValues : null
+      if (!values || !values.length) {
+        throw new Error(data.error || 'No P-Box values found in code.')
+      }
+      setVisualizerForm((prev) => ({
+        ...prev,
+        pBoxTableText: values.join(', '),
+      }))
+      updateStatus('P-Box filled using AI.')
+    } catch (error) {
+      setPboxError(
+        error instanceof Error
+          ? error.message
+          : 'Failed to load P-Box info.',
+      )
+    } finally {
+      setPboxLoading(false)
+    }
+  }, [updateStatus])
 
   const handleOpenVisualizer = useCallback(() => {
     const finalConfig: ConfigFormState = {
@@ -1361,7 +1404,7 @@ function BoncApp() {
               </div>
 
               <label className="form-row">
-                S-Box table
+                <label>S-Box table</label>
                 <textarea
                   name="viz-sbox-table"
                   rows={3}
@@ -1377,19 +1420,32 @@ function BoncApp() {
               </label>
 
               <label className="form-row">
-                P-Box permutation
-                <textarea
-                  name="viz-pbox-table"
-                  rows={3}
-                  value={visualizerForm.pBoxTableText}
-                  onChange={(event) =>
-                    setVisualizerForm((prev) => ({
-                      ...prev,
-                      pBoxTableText: event.target.value,
-                    }))
-                  }
-                  placeholder="Comma-separated bit positions"
-                />
+                <label>P-Box permutation</label>
+                <div className="inline-actions">
+                  <textarea
+                    name="viz-pbox-table"
+                    rows={3}
+                    value={visualizerForm.pBoxTableText}
+                    onChange={(event) =>
+                      setVisualizerForm((prev) => ({
+                        ...prev,
+                        pBoxTableText: event.target.value,
+                      }))
+                    }
+                    placeholder="Comma-separated bit positions"
+                  />
+                  <button
+                    className="secondary small"
+                    type="button"
+                    onClick={fillPBoxWithAI}
+                    disabled={pboxLoading}
+                  >
+                    {pboxLoading ? 'Filling...' : 'Fill in with AI...'}
+                  </button>
+                </div>
+                {pboxError ? (
+                  <div className="error-text">{pboxError}</div>
+                ) : null}
               </label>
 
               <label className="form-row">

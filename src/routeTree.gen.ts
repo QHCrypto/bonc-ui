@@ -15,6 +15,7 @@ import { Route as ApiStreamRouteImport } from './routes/api/stream'
 import { Route as ApiSettingsRouteImport } from './routes/api/settings'
 import { Route as ApiSboxInfoRouteImport } from './routes/api/sbox-info'
 import { Route as ApiRunBackendRouteImport } from './routes/api/run-backend'
+import { Route as ApiReasonInfoFromCodeRouteImport } from './routes/api/reason-info-from-code'
 import { Route as ApiCompileRouteImport } from './routes/api/compile'
 
 const Spn_visualizerRoute = Spn_visualizerRouteImport.update({
@@ -47,6 +48,11 @@ const ApiRunBackendRoute = ApiRunBackendRouteImport.update({
   path: '/api/run-backend',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReasonInfoFromCodeRoute = ApiReasonInfoFromCodeRouteImport.update({
+  id: '/api/reason-info-from-code',
+  path: '/api/reason-info-from-code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCompileRoute = ApiCompileRouteImport.update({
   id: '/api/compile',
   path: '/api/compile',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/spn_visualizer': typeof Spn_visualizerRoute
   '/api/compile': typeof ApiCompileRoute
+  '/api/reason-info-from-code': typeof ApiReasonInfoFromCodeRoute
   '/api/run-backend': typeof ApiRunBackendRoute
   '/api/sbox-info': typeof ApiSboxInfoRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/spn_visualizer': typeof Spn_visualizerRoute
   '/api/compile': typeof ApiCompileRoute
+  '/api/reason-info-from-code': typeof ApiReasonInfoFromCodeRoute
   '/api/run-backend': typeof ApiRunBackendRoute
   '/api/sbox-info': typeof ApiSboxInfoRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/spn_visualizer': typeof Spn_visualizerRoute
   '/api/compile': typeof ApiCompileRoute
+  '/api/reason-info-from-code': typeof ApiReasonInfoFromCodeRoute
   '/api/run-backend': typeof ApiRunBackendRoute
   '/api/sbox-info': typeof ApiSboxInfoRoute
   '/api/settings': typeof ApiSettingsRoute
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/spn_visualizer'
     | '/api/compile'
+    | '/api/reason-info-from-code'
     | '/api/run-backend'
     | '/api/sbox-info'
     | '/api/settings'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/spn_visualizer'
     | '/api/compile'
+    | '/api/reason-info-from-code'
     | '/api/run-backend'
     | '/api/sbox-info'
     | '/api/settings'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/spn_visualizer'
     | '/api/compile'
+    | '/api/reason-info-from-code'
     | '/api/run-backend'
     | '/api/sbox-info'
     | '/api/settings'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   Spn_visualizerRoute: typeof Spn_visualizerRoute
   ApiCompileRoute: typeof ApiCompileRoute
+  ApiReasonInfoFromCodeRoute: typeof ApiReasonInfoFromCodeRoute
   ApiRunBackendRoute: typeof ApiRunBackendRoute
   ApiSboxInfoRoute: typeof ApiSboxInfoRoute
   ApiSettingsRoute: typeof ApiSettingsRoute
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiRunBackendRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/reason-info-from-code': {
+      id: '/api/reason-info-from-code'
+      path: '/api/reason-info-from-code'
+      fullPath: '/api/reason-info-from-code'
+      preLoaderRoute: typeof ApiReasonInfoFromCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/compile': {
       id: '/api/compile'
       path: '/api/compile'
@@ -179,6 +199,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   Spn_visualizerRoute: Spn_visualizerRoute,
   ApiCompileRoute: ApiCompileRoute,
+  ApiReasonInfoFromCodeRoute: ApiReasonInfoFromCodeRoute,
   ApiRunBackendRoute: ApiRunBackendRoute,
   ApiSboxInfoRoute: ApiSboxInfoRoute,
   ApiSettingsRoute: ApiSettingsRoute,

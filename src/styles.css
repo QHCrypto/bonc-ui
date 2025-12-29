@@ -177,6 +177,7 @@ p {
 }
 
 .form-row textarea {
+  flex-grow: 1;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -371,6 +372,8 @@ button.small {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-height: 80vh;
+  overflow: auto;
 }
 
 .modal-header {

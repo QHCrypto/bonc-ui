@@ -1,6 +1,9 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { openrouter } from '@openrouter/ai-sdk-provider'
+import { Output, generateText } from 'ai'
+import * as z from 'zod/v4'
 import { DEFAULT_SETTINGS } from '@/constant'
 
 export type Settings = {
@@ -354,7 +357,15 @@ export async function compile(code: string) {
   await runCommand({
     label: 'bonc-clang',
     cmd: settings.clangPath,
-    args: ['temp.c', '-I', settings.boncLibPath, '-emit-llvm', '-S', '-o', 'temp.ll'],
+    args: [
+      'temp.c',
+      '-I',
+      settings.boncLibPath,
+      '-emit-llvm',
+      '-S',
+      '-o',
+      'temp.ll',
+    ],
     cwd: runDir,
   })
   await runCommand({
@@ -433,4 +444,44 @@ export async function readSBoxInfo(jsonPath: string): Promise<SBoxInfo> {
     outputWidth,
     value: sBox.value,
   }
+}
+
+const ReasonResultSchema = z.object({
+  pBoxValues: z
+    .array(z.number())
+    .nullable()
+    .describe('P-Box truthy table values'),
+  error: z
+    .string()
+    .optional()
+    .describe('Error message if any information is missing'),
+})
+interface ReasonResult extends z.infer<typeof ReasonResultSchema> {}
+
+export async function reasonInfoFromCode(code: string): Promise<ReasonResult> {
+  const response = await generateText({
+    model: openrouter(process.env.OPENROUTER_MODEL_NAME || 'x-ai/grok-4-fast'),
+    prompt: [
+      {
+        role: 'system',
+        content: `You are a helpful assistant that receives an implementation C code of an SPN-structured block cipher, and extracts relevant information from it. The code may contains headers, attributes and function calls related to *BONC* -- which is our cryptanalysis framework's codename -- they should not affect the semantic of encryption and you can safely ignore them.
+
+The information you need to extract are:
+- *P-Box truthy table values*; respond as a JSON array of numbers. 
+
+If some of information are not found in the code, respond with \`null\` for that information, and you may provide additional explanation to that error in the \`error\` field.`,
+      },
+      {
+        role: 'user',
+        content: `Please extract the required information from the following C code:
+\`\`\`c
+${code}
+\`\`\``,
+      },
+    ],
+    output: Output.object({
+      schema: ReasonResultSchema,
+    }),
+  })
+  return response.output
 }

@@ -13,18 +13,21 @@
     "postinstall": "bun scripts/patch-nitro-socket.js"
   },
   "dependencies": {
+    "@openrouter/ai-sdk-provider": "^1.5.4",
     "@tanstack/react-devtools": "^0.7.0",
     "@tanstack/react-router": "^1.132.0",
     "@tanstack/react-router-devtools": "^1.132.0",
     "@tanstack/react-router-ssr-query": "^1.131.7",
     "@tanstack/react-start": "^1.132.0",
     "@tanstack/router-plugin": "^1.132.0",
+    "ai": "^6.0.3",
     "glob": "^13.0.0",
-    "node-pty": "^1.1.0",
     "nitro": "latest",
+    "node-pty": "^1.1.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "vite-tsconfig-paths": "^6.0.2"
+    "vite-tsconfig-paths": "^6.0.2",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@tanstack/devtools-vite": "^0.3.11",
