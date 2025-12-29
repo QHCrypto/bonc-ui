@@ -76,9 +76,13 @@ function stripAnsi(value: string) {
 }
 
 function parseStateLine(line: string, reverse = false) {
-  const nibbles = (line.match(/[-0-9a-fA-F]/g) ?? []).map((char) =>
+  const chars = line.split('')
+  const nibbles = chars.map((char) =>
     char === '-' ? 0 : Number.parseInt(char, 16),
   )
+  if (nibbles.some((value) => Number.isNaN(value))) {
+    throw new Error('State line contains invalid characters.')
+  }
   if (reverse) {
     nibbles.reverse()
   }
@@ -91,14 +95,50 @@ function parseStateLine(line: string, reverse = false) {
 }
 
 function extractHighlights(states: string[], reverse = false) {
+  if (!states.length) {
+    return { highlights: [], blockSize: 0 }
+  }
+
+  const trimmed = states.map((line) => line.trim())
+  const lengths = new Set(trimmed.map((line) => line.length))
+  if (lengths.size !== 1) {
+    throw new Error('All state lines must have the same length.')
+  }
+  const lineLength = trimmed[0].length
+  if (!trimmed.every((line) => /^[0-9a-fA-FxX-]+$/.test(line))) {
+    throw new Error('State lines must contain only 0-9, a-f, -, or x.')
+  }
+
+  const dropColumn: boolean[] = Array(lineLength).fill(false)
+  for (let column = 0; column < lineLength; column++) {
+    for (const line of trimmed) {
+      if (line[column].toLowerCase() === 'x') {
+        dropColumn[column] = true
+        break
+      }
+    }
+  }
+
+  const filteredStates = trimmed.map((line) =>
+    line
+      .split('')
+      .filter((_, idx) => !dropColumn[idx])
+      .join(''),
+  )
+
+  if (!filteredStates[0].length) {
+    throw new Error('No columns remain after removing x columns.')
+  }
+
   const highlights: number[][] = []
-  let guessedBlock = Infinity
-  for (const state of states) {
+  let blockSize = Infinity
+  for (const state of filteredStates) {
     const parsed = parseStateLine(state, reverse)
     highlights.push(parsed.highlightBits)
-    guessedBlock = Math.min(guessedBlock, parsed.blockSize)
+    blockSize = Math.min(blockSize, parsed.blockSize)
   }
-  return { highlights, blockSize: guessedBlock }
+
+  return { highlights, blockSize }
 }
 
 function feedPrintStateChunk(
