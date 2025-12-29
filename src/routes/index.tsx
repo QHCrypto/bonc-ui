@@ -1360,7 +1360,7 @@ function BoncApp() {
                 ) : null}
               </div>
 
-              <label className="field-block">
+              <label className="form-row">
                 S-Box table
                 <textarea
                   name="viz-sbox-table"
@@ -1376,7 +1376,7 @@ function BoncApp() {
                 />
               </label>
 
-              <label className="field-block">
+              <label className="form-row">
                 P-Box permutation
                 <textarea
                   name="viz-pbox-table"
@@ -1392,7 +1392,7 @@ function BoncApp() {
                 />
               </label>
 
-              <label className="field-block">
+              <label className="form-row">
                 Round layout (optional)
                 <textarea
                   name="viz-round-layout"
@@ -1447,7 +1447,7 @@ function BoncApp() {
                 />
               </div>
 
-              <label className="field-block">
+              <label className="form-row">
                 Highlight bits (read-only)
                 <textarea
                   name="viz-highlights"

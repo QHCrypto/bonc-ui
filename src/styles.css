@@ -176,6 +176,16 @@ p {
   font-size: 0.9rem;
 }
 
+.form-row textarea {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 80px;
+}
+
 .toggle-row {
   flex-direction: row;
   align-items: center;
