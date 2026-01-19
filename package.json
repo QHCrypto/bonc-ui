@@ -10,7 +10,8 @@
     "lint": "eslint",
     "format": "prettier",
     "check": "prettier --write . && eslint --fix",
-    "postinstall": "bun scripts/patch-nitro-socket.js"
+    "postinstall": "bun scripts/patch-nitro-socket.js",
+    "start": "bun .output/server/index.mjs"
   },
   "dependencies": {
     "@openrouter/ai-sdk-provider": "^1.5.4",
