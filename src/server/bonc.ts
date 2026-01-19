@@ -143,39 +143,30 @@ export function addStreamClient(send: (payload: string) => void) {
   }
 }
 
+const decoder = new TextDecoder()
+
 async function runPtyCommand({ label, cmd, args, cwd }: PtyCommand) {
-  const ptyModule = await import('node-pty')
-  const spawn = ptyModule.spawn
-  if (!spawn) {
-    throw new Error('node-pty spawn is unavailable.')
-  }
   sendNotice('info', `Starting ${label}`)
   sendNotice('info', `Command: ${cmd} ${args.map((a) => `"${a}"`).join(' ')}`)
-  return new Promise<PtyResult>((resolve, reject) => {
-    let proc
-    try {
-      proc = spawn(cmd, args, {
-        cwd,
-        env: process.env,
-        cols: 120,
-        rows: 30,
-        name: 'xterm-color',
-      })
-    } catch (err) {
-      reject(err)
-      return
-    }
-
-    proc.onData((data: string) => {
-      sendPty(data)
-    })
-
-    proc.onExit(
-      ({ exitCode, signal }: { exitCode: number; signal?: number }) => {
-        resolve({ exitCode, signal })
+  let terminal
+  try {
+    terminal = new Bun.Terminal({
+      data(term, data) {
+        console.log(data);
+        sendPty(decoder.decode(data))
       },
-    )
-  })
+    })
+    const proc = Bun.spawn([cmd, ...args], {
+      terminal,
+      env: process.env,
+      cwd,
+    })
+    console.log(terminal)
+    const exitCode = await proc.exited
+    return { exitCode }
+  } finally {
+    terminal?.close()
+  }
 }
 
 async function runCommand(command: PtyCommand) {
