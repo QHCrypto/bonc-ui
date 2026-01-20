@@ -152,7 +152,6 @@ async function runPtyCommand({ label, cmd, args, cwd }: PtyCommand) {
   try {
     terminal = new Bun.Terminal({
       data(term, data) {
-        console.log(data);
         sendPty(decoder.decode(data))
       },
     })
@@ -161,7 +160,6 @@ async function runPtyCommand({ label, cmd, args, cwd }: PtyCommand) {
       env: process.env,
       cwd,
     })
-    console.log(terminal)
     const exitCode = await proc.exited
     return { exitCode }
   } finally {
